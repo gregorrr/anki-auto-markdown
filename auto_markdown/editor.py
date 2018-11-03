@@ -108,8 +108,9 @@ def onMarkdownToggle(editor):
         else:
             updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
         
-        editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
-        editor.note.fields[field_id] = updated_field_html
+        if editor:
+            editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
+            editor.note.fields[field_id] = updated_field_html
 
     editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
 
@@ -160,10 +161,10 @@ def editFocusLostFilter(_flag, note, field_id):
 
     def onInnerTextAvailable(field_text):
         updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
-      
-        editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
-        editor_instance.note.fields[field_id] = updated_field_html
 
+        if editor_instance:
+            editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
+            editor_instance.note.fields[field_id] = updated_field_html
 
     global editor_instance
 
