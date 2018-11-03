@@ -1,0 +1,15 @@
+{
+    "ui": {
+        "editFieldCheckbox": true
+    },
+    "auto": {
+        "enabled": true
+    },
+    "manual": {
+        "shortcut": "Ctrl+M"
+    },
+    "code": {
+        "colorScheme": "default",
+        "lineNums": true
+    }
+}
