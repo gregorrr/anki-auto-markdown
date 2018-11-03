@@ -9,13 +9,14 @@ def shouldShowCodeLineNums():
 def getCodeColorScheme():
     return getConfig()['code']['colorScheme']
 
-
-def shouldShowEditFieldCheckbox():
-    return getConfig()['ui']['editFieldCheckbox']
-
 def isAutoMarkdownEnabled():
     return getConfig()['auto']['enabled']
+
+def shouldShowEditFieldCheckbox():
+    return getConfig()['auto']['uiEditFieldCheckbox']
 
 def getManualMarkdownShortcut():
     return getConfig()['manual']['shortcut']
 
+def shouldShowFieldMarkdownButton():
+    return getConfig()['manual']['uiToggleFieldMarkdownButton']

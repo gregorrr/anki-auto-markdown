@@ -1,15 +1,14 @@
 {
-    "ui": {
-        "editFieldCheckbox": true
-    },
     "auto": {
-        "enabled": true
-    },
-    "manual": {
-        "shortcut": "Ctrl+M"
+        "enabled": true,
+        "uiEditFieldCheckbox": true
     },
     "code": {
         "colorScheme": "default",
         "lineNums": true
+    },
+    "manual": {
+        "shortcut": "Ctrl+M",
+        "uiToggleFieldMarkdownButton": true
     }
 }
