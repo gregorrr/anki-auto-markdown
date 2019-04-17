@@ -10,12 +10,13 @@ from .consts import addon_path
 from . import markdown
 
 from .markdown.extensions.abbr import AbbrExtension
-from .markdown.extensions.admonition import AdmonitionExtension
 from .markdown.extensions.codehilite import CodeHiliteExtension
 from .markdown.extensions.def_list import DefListExtension
 from .markdown.extensions.fenced_code import FencedCodeExtension
 from .markdown.extensions.footnotes import FootnoteExtension
-from .markdown.extensions.meta import MetaExtension
+
+#from .markdown.extensions.admonition import AdmonitionExtension
+#from .markdown.extensions.meta import MetaExtension
 
 #from .markdown.extensions.attr_list import AttrListExtension
 #from .markdown.extensions.headerid import HeaderIdExtension
@@ -39,11 +40,12 @@ editor_instance = None
 
 def generateHtmlFromMarkdown(field_text, field_html):
     
+    # store original text as data-attribute on tree root
+    encoded_field_html = base64.b64encode(field_html.encode('utf-8')).decode() # needs to be string
     field_text = field_text.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
 
     md_text = markdown.markdown(field_text, extensions=[
         AbbrExtension(),
-        AdmonitionExtension(),
         CodeHiliteExtension(
             noclasses = True, 
             linenums = config.shouldShowCodeLineNums(), 
@@ -52,19 +54,17 @@ def generateHtmlFromMarkdown(field_text, field_html):
         DefListExtension(),
         FencedCodeExtension(),
         FootnoteExtension(),
-        MetaExtension()
-        ])
-
-    # if empty, use div as root tag
-    if not md_text:
-        md_text = "<div>&nbsp;</div>"
+        ], output_format="html5")
 
     md_tree = BeautifulSoup(md_text, 'html.parser')
-
-    # store original text as data-attribute on tree root
-    encoded_field_html = base64.b64encode(field_html.encode('utf-8')).decode() # needs to be string
-
     first_tag = findFirstTag(md_tree)
+
+    # No HTML tags in output
+    if not first_tag:
+        # if not md_text, add space to prevent input field from shrinking in UI
+        md_tree = BeautifulSoup("<div>" + ( "&nbsp;" if not md_text else md_text ) + "</div>", "html.parser")
+        first_tag = findFirstTag(md_tree)
+    
     first_tag['data-original-markdown'] = encoded_field_html
 
     return str(md_tree)
