@@ -55,6 +55,10 @@ def generateHtmlFromMarkdown(field_text, field_html):
         MetaExtension()
         ])
 
+    # if empty, use div as root tag
+    if not md_text:
+        md_text = "<div>&nbsp;</div>"
+
     md_tree = BeautifulSoup(md_text, 'html.parser')
 
     # store original text as data-attribute on tree root
@@ -92,11 +96,6 @@ def fieldIsGeneratedHtml(field_html):
 
 
 def onMarkdownToggle(editor):
-    field_id = editor.currentField
-    field_html = editor.note.fields[field_id]
-
-    if not field_html:
-        return
 
     def onInnerTextAvailable(field_text):
         isGenerated = fieldIsGeneratedHtml(field_html)
@@ -108,9 +107,15 @@ def onMarkdownToggle(editor):
         else:
             updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
         
-        if editor:
+        if editor and editor.web:
             editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
             editor.note.fields[field_id] = updated_field_html
+
+    field_id = editor.currentField
+    field_html = editor.note.fields[field_id]
+
+    if not field_html:
+        return
 
     editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
 
@@ -162,7 +167,7 @@ def editFocusLostFilter(_flag, note, field_id):
     def onInnerTextAvailable(field_text):
         updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
 
-        if editor_instance:
+        if editor_instance and editor_instance.web:
             editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
             editor_instance.note.fields[field_id] = updated_field_html
 
