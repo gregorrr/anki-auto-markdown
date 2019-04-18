@@ -38,13 +38,10 @@ from . import config
 
 editor_instance = None
 
-def generateHtmlFromMarkdown(field_text, field_html):
-    
-    # store original text as data-attribute on tree root
-    encoded_field_html = base64.b64encode(field_html.encode('utf-8')).decode() # needs to be string
-    field_text = field_text.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
+def generateHtmlFromMarkdown(field_plain, field_html):
+    field_plain = field_plain.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
 
-    md_text = markdown.markdown(field_text, extensions=[
+    generated_html = markdown.markdown(field_plain, extensions=[
         AbbrExtension(),
         CodeHiliteExtension(
             noclasses = True, 
@@ -56,18 +53,20 @@ def generateHtmlFromMarkdown(field_text, field_html):
         FootnoteExtension(),
         ], output_format="html5")
 
-    md_tree = BeautifulSoup(md_text, 'html.parser')
-    first_tag = findFirstTag(md_tree)
+    html_tree = BeautifulSoup(generated_html, 'html.parser')
+    first_tag = findFirstTag(html_tree)
 
     # No HTML tags in output
     if not first_tag:
         # if not md_text, add space to prevent input field from shrinking in UI
-        md_tree = BeautifulSoup("<div>" + ( "&nbsp;" if not md_text else md_text ) + "</div>", "html.parser")
-        first_tag = findFirstTag(md_tree)
+        html_tree = BeautifulSoup("<div>" + ( "&nbsp;" if not generated_html else generated_html ) + "</div>", "html.parser")
+        first_tag = findFirstTag(html_tree)
     
+    # store original text as data-attribute on tree root
+    encoded_field_html = base64.b64encode(field_html.encode('utf-8')).decode() # needs to be string
     first_tag['data-original-markdown'] = encoded_field_html
 
-    return str(md_tree)
+    return str(html_tree)
 
 
 def findFirstTag(tree):
@@ -95,6 +94,102 @@ def fieldIsGeneratedHtml(field_html):
     return first_tag is not None and first_tag.attrs is not None and 'data-original-markdown' in first_tag.attrs
 
 
+
+# automatically convert html back to markdown text
+def editFocusGainedHook(note, field_id):
+    # changes made to the note object weren't represented in the UI, note.fields[field_id] = md, note.flush() etc.
+    # Therefore let's set the value on the form ourselves
+    global editor_instance
+
+    field = note.model()['flds'][field_id]
+    field_html = note.fields[field_id]
+
+    if not editor_instance or not field_html:
+        return
+
+    fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
+    isGenerated = fieldIsGeneratedHtml(field_html)
+
+    # disable editing if field is generated html but not auto
+    if not fieldIsAutoMarkdown and isGenerated:
+        editor_instance.web.eval(disableFieldEditingJS(field_id))
+
+    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
+        # make automatically make field editable
+        editor_instance.web.eval(enableFieldEditingJS(field_id))
+        md = getOriginalTextFromGenerated(field_html)
+        note.fields[field_id] = md
+        editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
+       
+
+# automatically convert markdown to html
+def editFocusLostFilter(_flag, note, field_id):
+
+    def onInnerTextAvailable(field_text):
+        updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
+
+        if editor_instance and editor_instance.web:
+            editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
+            editor_instance.note.fields[field_id] = updated_field_html
+
+    global editor_instance
+
+    field = note.model()['flds'][field_id]
+    field_html = note.fields[field_id]
+
+    if not editor_instance or not field_html:
+        return _flag
+
+    fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
+    isGenerated = fieldIsGeneratedHtml(field_html)
+
+    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and not isGenerated:
+        editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
+
+    return _flag # Just pass _flag through, don't need to reload the note.
+
+
+def enableFieldEditingJS(field_id):
+    return """
+    (function() {
+        var field = document.getElementById('f%s');
+
+        if (field.hasAttribute("data-auto-markdown-disabled")) {
+            field.setAttribute("onpaste", "onPaste(this);");
+            field.setAttribute("oncut", "onCutOrCopy(this);");
+            field.setAttribute("onkeydown", "onKey();");
+
+            if (field.hasAttribute("data-markdown-prev-border")) {
+                field.style.border.cssText = field.getAttribute("data-markdown-prev-border");
+                field.removeAttribute("data-auto-markdown-prev-border");
+            } else {
+                field.style.border = null;
+            }
+            
+            field.removeAttribute("data-auto-markdown-disabled");
+        }
+    })()""" % (field_id)
+
+
+def disableFieldEditingJS(field_id):
+    return """
+    (function() {
+        var field = document.getElementById('f%s');
+
+        field.setAttribute("data-auto-markdown-disabled", "true");
+
+        if (field.style.border) {
+            field.setAttribute("auto-markdown-prev-border", field.style.border.cssText);
+        }
+        field.style.border = "1px solid blue";
+
+        field.setAttribute("onpaste", "return false;");
+        field.setAttribute("oncut", "return false;");
+        // Allow Ctrl +, and Tab key
+        field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
+    })()""" % (field_id)
+
+    
 def onMarkdownToggle(editor):
 
     def onInnerTextAvailable(field_text):
@@ -111,10 +206,19 @@ def onMarkdownToggle(editor):
             editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
             editor.note.fields[field_id] = updated_field_html
 
+            # re-enable editing after converting back to plaintext
+            if isGenerated:
+                editor.web.eval(enableFieldEditingJS(field_id))
+            # disable editing after converting to html
+            else:
+                editor.web.eval(disableFieldEditingJS(field_id))
+
     field_id = editor.currentField
     field_html = editor.note.fields[field_id]
+    field = editor.note.model()['flds'][field_id]
 
-    if not field_html:
+    # don't allow manual toggle on auto field
+    if not field_html or (config.isAutoMarkdownEnabled() and 'perform-auto-markdown' in field and field['perform-auto-markdown']):
         return
 
     editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
@@ -139,55 +243,6 @@ def setupEditorButtonsFilter(buttons, editor):
 
     return buttons
 
-
-# automatically convert html back to markdown text
-def editFocusGainedHook(note, field_id):
-    # changes made to the note object weren't represented in the UI, note.fields[field_id] = md, note.flush() etc.
-    # Therefore let's set the value on the form ourselves
-    global editor_instance
-
-    field = note.model()['flds'][field_id]
-    field_html = note.fields[field_id]
-
-    if not editor_instance or not field_html:
-        return
-
-    fieldIsAutoMarkdown = field['perform-auto-markdown'] if 'perform-auto-markdown' in field else False
-    isGenerated = fieldIsGeneratedHtml(field_html)
-
-    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
-        md = getOriginalTextFromGenerated(field_html)
-        note.fields[field_id] = md
-        editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
-       
-
-# automatically convert markdown to html
-def editFocusLostFilter(_flag, note, field_id):
-
-    def onInnerTextAvailable(field_text):
-        updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
-
-        if editor_instance and editor_instance.web:
-            editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
-            editor_instance.note.fields[field_id] = updated_field_html
-
-    global editor_instance
-
-    field = note.model()['flds'][field_id]
-    field_html = note.fields[field_id]
-
-    if not editor_instance or not field_html:
-        return _flag
-
-    fieldIsAutoMarkdown = field['perform-auto-markdown'] if 'perform-auto-markdown' in field else False
-    isGenerated = fieldIsGeneratedHtml(field_html)
-
-    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and not isGenerated:
-        editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
-
-    return _flag # Just pass _flag through, don't need to reload the note.
-    
-    
 
 addHook("setupEditorButtons", setupEditorButtonsFilter)
 addHook("editFocusGained", editFocusGainedHook)

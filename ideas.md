@@ -12,3 +12,5 @@ When in manual mode, onFocusGained indicate that the field has been generated an
 
 Allow setting of custom field name suffix, e.g. "_mkd_", to indicate that the field should be auto markdown.
 
+## On Focus Lost, store cursor position for potential restore on focus gained
+
