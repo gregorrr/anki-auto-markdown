@@ -93,6 +93,44 @@ def fieldIsGeneratedHtml(field_html):
 
     return first_tag is not None and first_tag.attrs is not None and 'data-original-markdown' in first_tag.attrs
 
+def enableFieldEditingJS(field_id):
+    return """
+    (function() {
+        var field = document.getElementById('f%s');
+
+        if (field.classList.contains("auto-markdown-indicator")) {
+            field.setAttribute("onpaste", "onPaste(this);");
+            field.setAttribute("oncut", "onCutOrCopy(this);");
+            field.setAttribute("onkeydown", "onKey();");
+
+            field.classList.remove("auto-markdown-indicator");
+        }
+    })()""" % (field_id)
+
+
+def disableFieldEditingJS(field_id):
+    return """
+    (function() {
+        // need to create style because element.style.background is being overwritten.
+        // from: https://davidwalsh.name/add-rules-stylesheets
+        var style = document.getElementById("auto-markdown-style");
+        if (!style) {
+            var style = document.createElement("style");
+            style.appendChild(document.createTextNode(""));
+            document.head.appendChild(style);
+
+            style.setAttribute("id", "auto-markdown-style");
+            style.sheet.insertRule(".auto-markdown-indicator { background: #FFFDE7 !important; }");
+        }
+        
+        var field = document.getElementById('f%s');
+        field.classList.add("auto-markdown-indicator");
+
+        field.setAttribute("onpaste", "return false;");
+        field.setAttribute("oncut", "return false;");
+        // Allow Ctrl +, and Tab key
+        field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
+    })()""" % (field_id)
 
 
 # automatically convert html back to markdown text
@@ -115,8 +153,6 @@ def editFocusGainedHook(note, field_id):
         editor_instance.web.eval(disableFieldEditingJS(field_id))
 
     if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
-        # make automatically make field editable
-        editor_instance.web.eval(enableFieldEditingJS(field_id))
         md = getOriginalTextFromGenerated(field_html)
         note.fields[field_id] = md
         editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
@@ -137,6 +173,9 @@ def editFocusLostFilter(_flag, note, field_id):
     field = note.model()['flds'][field_id]
     field_html = note.fields[field_id]
 
+    # remove markdown indicator
+    editor_instance.web.eval(enableFieldEditingJS(field_id))
+
     if not editor_instance or not field_html:
         return _flag
 
@@ -149,50 +188,15 @@ def editFocusLostFilter(_flag, note, field_id):
     return _flag # Just pass _flag through, don't need to reload the note.
 
 
-def enableFieldEditingJS(field_id):
-    return """
-    (function() {
-        var field = document.getElementById('f%s');
-
-        if (field.hasAttribute("data-auto-markdown-disabled")) {
-            field.setAttribute("onpaste", "onPaste(this);");
-            field.setAttribute("oncut", "onCutOrCopy(this);");
-            field.setAttribute("onkeydown", "onKey();");
-
-            if (field.hasAttribute("data-markdown-prev-border")) {
-                field.style.border.cssText = field.getAttribute("data-markdown-prev-border");
-                field.removeAttribute("data-auto-markdown-prev-border");
-            } else {
-                field.style.border = null;
-            }
-            
-            field.removeAttribute("data-auto-markdown-disabled");
-        }
-    })()""" % (field_id)
-
-
-def disableFieldEditingJS(field_id):
-    return """
-    (function() {
-        var field = document.getElementById('f%s');
-
-        field.setAttribute("data-auto-markdown-disabled", "true");
-
-        if (field.style.border) {
-            field.setAttribute("auto-markdown-prev-border", field.style.border.cssText);
-        }
-        field.style.border = "1px solid blue";
-
-        field.setAttribute("onpaste", "return false;");
-        field.setAttribute("oncut", "return false;");
-        // Allow Ctrl +, and Tab key
-        field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
-    })()""" % (field_id)
-
     
 def onMarkdownToggle(editor):
 
-    def onInnerTextAvailable(field_text):
+    # workaround for problem with editor.note.fields[field_id] sometimes not being populated
+    def onHtmlAvailable(field_html):
+        editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
+            lambda field_text : onInnerTextAvailable(field_html, field_text))
+
+    def onInnerTextAvailable(field_html, field_text):
         isGenerated = fieldIsGeneratedHtml(field_html)
         
         # convert back to plaintext
@@ -214,14 +218,8 @@ def onMarkdownToggle(editor):
                 editor.web.eval(disableFieldEditingJS(field_id))
 
     field_id = editor.currentField
-    field_html = editor.note.fields[field_id]
-    field = editor.note.model()['flds'][field_id]
-
-    # don't allow manual toggle on auto field
-    if not field_html or (config.isAutoMarkdownEnabled() and 'perform-auto-markdown' in field and field['perform-auto-markdown']):
-        return
-
-    editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
+    editor_instance.web.evalWithCallback("document.getElementById('f%s').innerHTML" % (field_id), onHtmlAvailable)
+    
 
 
 def setupEditorButtonsFilter(buttons, editor):
