@@ -2,7 +2,6 @@ from aqt import mw
 from aqt.utils import showInfo, showText
 from aqt.qt import *
 
-from anki.hooks import addHook, wrap
 from anki.utils import json, stripHTML
 
 from .consts import addon_path
@@ -15,19 +14,6 @@ from .markdown.extensions.def_list import DefListExtension
 from .markdown.extensions.fenced_code import FencedCodeExtension
 from .markdown.extensions.footnotes import FootnoteExtension
 
-#from .markdown.extensions.admonition import AdmonitionExtension
-#from .markdown.extensions.meta import MetaExtension
-
-#from .markdown.extensions.attr_list import AttrListExtension
-#from .markdown.extensions.headerid import HeaderIdExtension
-#from .markdown.extensions.nl2br import Nl2BrExtension
-#from .markdown.extensions.sane_lists import SaneListExtension
-#from .markdown.extensions.smart_strong import SmartEmphasisExtension
-#from .markdown.extensions.smarty import SmartyExtension
-#from .markdown.extensions.toc import TocExtension
-#from .markdown.extensions.wikilinks import WikiLinkExtension
-
-
 import os
 import sys
 
@@ -35,8 +21,6 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 import base64
 
 from . import config
-
-editor_instance = None
 
 def generateHtmlFromMarkdown(field_plain, field_html):
     field_plain = field_plain.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
@@ -132,68 +116,94 @@ def disableFieldEditingJS(field_id):
         field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
     })()""" % (field_id)
 
+class AnkiMarkdown(object):
 
-# automatically convert html back to markdown text
-def editFocusGainedHook(note, field_id):
-    # changes made to the note object weren't represented in the UI, note.fields[field_id] = md, note.flush() etc.
-    # Therefore let's set the value on the form ourselves
-    global editor_instance
+    def __init__(self):
+        self.editor_instance = None
 
-    field = note.model()['flds'][field_id]
-    field_html = note.fields[field_id]
+    # automatically convert html back to markdown text
+    def editFocusGainedHook(self, note, field_id):
 
-    if not editor_instance or not field_html:
-        return
+        if not self.editor_instance:
+            return
 
-    fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
-    isGenerated = fieldIsGeneratedHtml(field_html)
+        if not self.editor_instance.web:
+            return
 
-    # disable editing if field is generated html but not auto
-    if not fieldIsAutoMarkdown and isGenerated:
-        editor_instance.web.eval(disableFieldEditingJS(field_id))
-
-    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
-        md = getOriginalTextFromGenerated(field_html)
-        note.fields[field_id] = md
-        editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
-       
-
-# automatically convert markdown to html
-def editFocusLostFilter(_flag, note, field_id):
-
-    def onInnerTextAvailable(field_text):
-        updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
-
-        if editor_instance and editor_instance.web:
-            editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
-            editor_instance.note.fields[field_id] = updated_field_html
-
-    global editor_instance
-
-    field = note.model()['flds'][field_id]
-    field_html = note.fields[field_id]
-
-    # remove markdown indicator
-    editor_instance.web.eval(enableFieldEditingJS(field_id))
-
-    if not editor_instance or not field_html:
-        return _flag
-
-    fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
-    isGenerated = fieldIsGeneratedHtml(field_html)
-
-    if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and not isGenerated:
-        editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
-
-    return _flag # Just pass _flag through, don't need to reload the note.
-
-
+        assert self.editor_instance
+        assert self.editor_instance.web
+        # changes made to the note object weren't represented in the UI, note.fields[field_id] = md, note.flush() etc.
+        # Therefore let's set the value on the form ourselves
     
+        field = note.model()['flds'][field_id]
+        field_html = note.fields[field_id]
+    
+        if not self.editor_instance or not field_html:
+            return
+    
+        fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
+        isGenerated = fieldIsGeneratedHtml(field_html)
+    
+        # disable editing if field is generated html but not auto
+        if not fieldIsAutoMarkdown and isGenerated:
+            self.editor_instance.web.eval(disableFieldEditingJS(field_id))
+    
+        if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
+            md = getOriginalTextFromGenerated(field_html)
+            note.fields[field_id] = md
+            self.editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
+           
+    
+    # automatically convert markdown to html
+    def editFocusLostFilter(self, _flag, note, field_id):
+    
+        def onInnerTextAvailable(field_text):
+            updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
+    
+            if self.editor_instance and self.editor_instance.web:
+                self.editor_instance.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
+                self.editor_instance.note.fields[field_id] = updated_field_html
+    
+        field = note.model()['flds'][field_id]
+        field_html = note.fields[field_id]
+    
+        if not self.editor_instance or not field_html or not self.editor_instance.web:
+            return _flag
+ 
+        # remove markdown indicator
+        self.editor_instance.web.eval(enableFieldEditingJS(field_id))
+    
+        fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
+        isGenerated = fieldIsGeneratedHtml(field_html)
+    
+        if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and not isGenerated:
+            self.editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), onInnerTextAvailable)
+    
+        return _flag # Just pass _flag through, don't need to reload the note.
+    
+    def setupEditorButtonsFilter(self, buttons, editor):
+        # need to save reference to editor as it's not passed to other hooks
+        self.editor_instance = editor
+    
+        key = QKeySequence(config.getManualMarkdownShortcut())
+        keyStr = key.toString(QKeySequence.NativeText)
+    
+        if config.shouldShowFieldMarkdownButton():
+            b = self.editor_instance.addButton(
+                os.path.join(addon_path, "icons", "markdown.png"), 
+                "markdown_button", onMarkdownToggle, 
+                keys=config.getManualMarkdownShortcut(), 
+                tip="Convert to/from Markdown ({})".format(keyStr))
+    
+            buttons.append(b)
+    
+        return buttons
+        
 def onMarkdownToggle(editor):
 
     # workaround for problem with editor.note.fields[field_id] sometimes not being populated
     def onHtmlAvailable(field_html):
-        editor_instance.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
+        editor.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
             lambda field_text : onInnerTextAvailable(field_html, field_text))
 
     def onInnerTextAvailable(field_html, field_text):
@@ -218,30 +228,4 @@ def onMarkdownToggle(editor):
                 editor.web.eval(disableFieldEditingJS(field_id))
 
     field_id = editor.currentField
-    editor_instance.web.evalWithCallback("document.getElementById('f%s').innerHTML" % (field_id), onHtmlAvailable)
-    
-
-
-def setupEditorButtonsFilter(buttons, editor):
-    # need to save reference to editor as it's not passed to other hooks
-    global editor_instance
-    editor_instance = editor
-
-    key = QKeySequence(config.getManualMarkdownShortcut())
-    keyStr = key.toString(QKeySequence.NativeText)
-
-    if config.shouldShowFieldMarkdownButton():
-        b = editor.addButton(
-            os.path.join(addon_path, "icons", "markdown.png"), 
-            "markdown_button", onMarkdownToggle, 
-            keys=config.getManualMarkdownShortcut(), 
-            tip="Convert to/from Markdown ({})".format(keyStr))
-
-        buttons.append(b)
-
-    return buttons
-
-
-addHook("setupEditorButtons", setupEditorButtonsFilter)
-addHook("editFocusGained", editFocusGainedHook)
-addHook("editFocusLost", editFocusLostFilter)
+    editor.web.evalWithCallback("document.getElementById('f%s').innerHTML" % (field_id), onHtmlAvailable)
