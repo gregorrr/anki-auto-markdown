@@ -5,9 +5,7 @@ from aqt.utils import showInfo
 from aqt.qt import *
 import aqt
 
-from anki.hooks import addHook, wrap
-from aqt.fields import FieldDialog
-
+# local
 from . import config
 
 def fieldDialog__init__(self, mw, note, ord=0, parent=None):
@@ -48,10 +46,3 @@ def fieldDialogSaveField(self):
     idx = self.currentIdx
     fld = self.model['flds'][idx]
     fld['perform-auto-markdown'] = self.markdownCheckbox.isChecked()
-      
-
-
-if (config.shouldShowEditFieldCheckbox()):
-    FieldDialog.__init__ = fieldDialog__init__ # override until better solution
-    FieldDialog.saveField = wrap(FieldDialog.saveField, fieldDialogSaveField)
-    FieldDialog.loadField = wrap(FieldDialog.loadField, fieldDialogLoadField)
