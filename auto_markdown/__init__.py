@@ -31,5 +31,6 @@ def main():
     addHook("setupEditorButtons", anki_markdown.setupEditorButtonsFilter)
     addHook("editFocusGained", anki_markdown.editFocusGainedHook)
     addHook("editFocusLost", anki_markdown.editFocusLostFilter)
+    addHook("loadNote", anki_markdown.loadNoteHook)
 
 main()
