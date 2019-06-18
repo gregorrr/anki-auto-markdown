@@ -23,7 +23,10 @@ import base64
 from . import config
 
 def generateHtmlFromMarkdown(field_plain, field_html):
-    field_plain = field_plain.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
+    if not field_plain:
+        field_plain = ""
+    else:
+        field_plain = field_plain.replace("\xc2\xa0", " ").replace("\xa0", " ") # non-breaking space
 
     generated_html = markdown.markdown(field_plain, extensions=[
         AbbrExtension(),
@@ -116,32 +119,77 @@ def disableFieldEditingJS(field_id):
         field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
     })()""" % (field_id)
 
-class AnkiMarkdown(object):
+
+def onMarkdownToggle(editor):
+
+    # workaround for problem with editor.note.fields[field_id] sometimes not being populated
+    def onHtmlAvailable(field_html):
+        if editor and editor.web:
+            editor.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
+            lambda field_text : onInnerTextAvailable(field_html, field_text))
+
+    def onInnerTextAvailable(field_html, field_text):
+        isGenerated = fieldIsGeneratedHtml(field_html)
+            
+        # convert back to plaintext
+        if isGenerated:
+            updated_field_html = getOriginalTextFromGenerated(field_html)
+        # convert to html
+        else:
+            updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
+            
+        if editor and editor.web:
+            editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
+            editor.note.fields[field_id] = updated_field_html
+
+            # re-enable editing after converting back to plaintext
+            if isGenerated:
+                editor.web.eval(enableFieldEditingJS(field_id))
+            # disable editing after converting to html
+            else:
+                editor.web.eval(disableFieldEditingJS(field_id))
+
+    field_id = editor.currentField
+    editor.web.evalWithCallback("document.getElementById('f%s').innerHTML" % (field_id), onHtmlAvailable)
+
+
+
+class EditorController(object):
 
     def __init__(self):
         self.editor = None
 
-    def loadNoteHook(self, editor):
+    def emptyLoadNoteHook(self, editor):
+        # need to save reference to editor as it's not passed to focus gained/lost hooks
         self.editor = editor
+
+    def emptySetupEditorButtonsFilter(self, buttons, editor):
+        self.editor = editor
+        return buttons
+
+    def setupEditorButtonsFilter(self, buttons, editor):
+        key = QKeySequence(config.getManualMarkdownShortcut())
+        keyStr = key.toString(QKeySequence.NativeText)
+    
+        b = self.editor.addButton(
+            os.path.join(addon_path, "icons", "markdown.png"), 
+            "markdown_button", onMarkdownToggle, 
+            keys=config.getManualMarkdownShortcut(), 
+            tip="Convert to/from Markdown ({})".format(keyStr))
+        
+        buttons.append(b)
+        return buttons
 
     # automatically convert html back to markdown text
     def editFocusGainedHook(self, note, field_id):
 
-        if not self.editor:
-            return
-
-        if not self.editor.web:
-            return
-
-        assert self.editor
-        assert self.editor.web
         # changes made to the note object weren't represented in the UI, note.fields[field_id] = md, note.flush() etc.
         # Therefore let's set the value on the form ourselves
     
         field = note.model()['flds'][field_id]
         field_html = note.fields[field_id]
     
-        if not self.editor or not field_html:
+        if not self.editor or not self.editor.web or not field_html:
             return
     
         fieldIsAutoMarkdown = 'perform-auto-markdown' in field and field['perform-auto-markdown']
@@ -151,7 +199,7 @@ class AnkiMarkdown(object):
         if not fieldIsAutoMarkdown and isGenerated:
             self.editor.web.eval(disableFieldEditingJS(field_id))
     
-        if config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
+        elif config.isAutoMarkdownEnabled() and fieldIsAutoMarkdown and isGenerated:
             md = getOriginalTextFromGenerated(field_html)
             note.fields[field_id] = md
             self.editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(md)))
@@ -170,7 +218,7 @@ class AnkiMarkdown(object):
         field = note.model()['flds'][field_id]
         field_html = note.fields[field_id]
     
-        if not self.editor or not field_html or not self.editor.web:
+        if not self.editor or not self.editor.web or not field_html:
             return _flag
  
         # remove markdown indicator
@@ -184,52 +232,8 @@ class AnkiMarkdown(object):
     
         return _flag # Just pass _flag through, don't need to reload the note.
     
-    def setupEditorButtonsFilter(self, buttons, editor):
-        # need to save reference to editor as it's not passed to other hooks
-        self.editor = editor
-    
-        key = QKeySequence(config.getManualMarkdownShortcut())
-        keyStr = key.toString(QKeySequence.NativeText)
-    
-        if config.shouldShowFieldMarkdownButton():
-            b = self.editor.addButton(
-                os.path.join(addon_path, "icons", "markdown.png"), 
-                "markdown_button", onMarkdownToggle, 
-                keys=config.getManualMarkdownShortcut(), 
-                tip="Convert to/from Markdown ({})".format(keyStr))
-    
-            buttons.append(b)
-    
-        return buttons
-        
-def onMarkdownToggle(editor):
 
-    # workaround for problem with editor.note.fields[field_id] sometimes not being populated
-    def onHtmlAvailable(field_html):
-        if editor and editor.web:
-            editor.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
-                lambda field_text : onInnerTextAvailable(field_html, field_text))
+    
+    
 
-    def onInnerTextAvailable(field_html, field_text):
-        isGenerated = fieldIsGeneratedHtml(field_html)
-        
-        # convert back to plaintext
-        if isGenerated:
-            updated_field_html = getOriginalTextFromGenerated(field_html)
-        # convert to html
-        else:
-            updated_field_html = generateHtmlFromMarkdown(field_text, field_html)
-        
-        if editor and editor.web:
-            editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(updated_field_html)))
-            editor.note.fields[field_id] = updated_field_html
 
-            # re-enable editing after converting back to plaintext
-            if isGenerated:
-                editor.web.eval(enableFieldEditingJS(field_id))
-            # disable editing after converting to html
-            else:
-                editor.web.eval(disableFieldEditingJS(field_id))
-
-    field_id = editor.currentField
-    editor.web.evalWithCallback("document.getElementById('f%s').innerHTML" % (field_id), onHtmlAvailable)

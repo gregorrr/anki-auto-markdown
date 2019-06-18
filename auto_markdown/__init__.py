@@ -2,35 +2,38 @@
 import sys
 import os
 
+# first add directory to path so pygments will resolve correctly
+for p in sys.path:
+    if p.endswith('addons21'):
+        sys.path.append(os.path.join(p, __name__))
+        break
+
 # anki
 from anki.hooks import addHook, wrap
 from aqt.fields import FieldDialog
+from aqt.editor import Editor
 
 # local
 from . import config
 from . import fields
-from .editor import AnkiMarkdown 
-
-from ._version import __version__
+from .editor import EditorController 
 
 def main():
-
-    for p in sys.path:
-        if (p.endswith('addons21')):
-            sys.path.append(os.path.join(p, __name__))
-            break
-
     # fields
-    if (config.shouldShowEditFieldCheckbox()):
+    if config.shouldShowEditFieldCheckbox():
         FieldDialog.__init__ = fields.fieldDialog__init__ # override until better solution
         FieldDialog.saveField = wrap(FieldDialog.saveField, fields.fieldDialogSaveField)
         FieldDialog.loadField = wrap(FieldDialog.loadField, fields.fieldDialogLoadField)
 
     # editor
-    anki_markdown = AnkiMarkdown()
-    addHook("setupEditorButtons", anki_markdown.setupEditorButtonsFilter)
-    addHook("editFocusGained", anki_markdown.editFocusGainedHook)
-    addHook("editFocusLost", anki_markdown.editFocusLostFilter)
-    addHook("loadNote", anki_markdown.loadNoteHook)
+    controller = EditorController()
+    addHook("setupEditorButtons", controller.emptySetupEditorButtonsFilter)
+    addHook("loadNote", controller.emptyLoadNoteHook)
 
+    if config.shouldShowFieldMarkdownButton():
+        addHook("setupEditorButtons", controller.setupEditorButtonsFilter)
+
+    addHook("editFocusGained", controller.editFocusGainedHook)
+    addHook("editFocusLost", controller.editFocusLostFilter)
+    
 main()
