@@ -31,8 +31,8 @@ def generateHtmlFromMarkdown(field_plain, field_html):
     generated_html = markdown.markdown(field_plain, extensions=[
         AbbrExtension(),
         CodeHiliteExtension(
-            noclasses = True, 
-            linenums = config.shouldShowCodeLineNums(), 
+            noclasses = config.shouldCodeUseNoClasses(),
+            linenums = config.shouldShowCodeLineNums(),
             pygments_style = config.getCodeColorScheme()
         ),
         DefListExtension(),

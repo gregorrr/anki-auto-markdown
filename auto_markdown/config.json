@@ -5,7 +5,8 @@
     },
     "code": {
         "colorScheme": "default",
-        "lineNums": true
+        "lineNums": true,
+        "noclasses": true
     },
     "manual": {
         "shortcut": "Ctrl+M",

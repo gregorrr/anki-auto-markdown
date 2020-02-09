@@ -9,6 +9,9 @@ def shouldShowCodeLineNums():
 def getCodeColorScheme():
     return getConfig()['code']['colorScheme']
 
+def shouldCodeUseNoClasses():
+    return getConfig()['code']['noclasses']
+
 def isAutoMarkdownEnabled():
     return getConfig()['auto']['enabled']
 

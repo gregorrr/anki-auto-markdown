@@ -10,6 +10,7 @@
     - Possible values: ['default', 'emacs', 'friendly', 'colorful', 'autumn', 'murphy', 'manni', 'monokai', 'perldoc', 'pastie', 'borland', 'trac', 'native', 'fruity', 'bw', 'vim', 'vs', 'tango', 'rrt', 'xcode', 'igor', 'paraiso-light', 'paraiso-dark', 'lovelace', 'algol', 'algol_nu', 'arduino', 'rainbow_dash', 'abap']
 
 - **lineNums**: true/false. Include line numbers in code.
+- **noclasses**: true/false. Use inline styles instead of classes. Disable to allow manual styling using CSS.
 
 ## 'manual'
 
