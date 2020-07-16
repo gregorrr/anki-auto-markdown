@@ -1,5 +1,6 @@
 from aqt import mw
 from aqt.utils import showInfo, showText
+from aqt.theme import theme_manager
 from aqt.qt import *
 
 from anki.utils import json, stripHTML
@@ -94,8 +95,8 @@ def enableFieldEditingJS(field_id):
         }
     })()""" % (field_id)
 
-
 def disableFieldEditingJS(field_id):
+    
     return """
     (function() {
         // need to create style because element.style.background is being overwritten.
@@ -107,9 +108,9 @@ def disableFieldEditingJS(field_id):
             document.head.appendChild(style);
 
             style.setAttribute("id", "auto-markdown-style");
-            style.sheet.insertRule(".auto-markdown-indicator { background: #FFFDE7 !important; }");
+            style.sheet.insertRule(".auto-markdown-indicator { background: %s !important; }");
         }
-        
+
         var field = document.getElementById('f%s');
         field.classList.add("auto-markdown-indicator");
 
@@ -117,7 +118,7 @@ def disableFieldEditingJS(field_id):
         field.setAttribute("oncut", "return false;");
         // Allow Ctrl +, and Tab key
         field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
-    })()""" % (field_id)
+    })()""" % ("#444231" if theme_manager.get_night_mode() else "#FFFDE7", field_id)
 
 
 def onMarkdownToggle(editor):
