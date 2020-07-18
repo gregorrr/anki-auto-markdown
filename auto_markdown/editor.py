@@ -1,6 +1,5 @@
 from aqt import mw
 from aqt.utils import showInfo, showText
-from aqt.theme import theme_manager
 from aqt.qt import *
 
 from anki.utils import json, stripHTML
@@ -96,6 +95,18 @@ def enableFieldEditingJS(field_id):
     })()""" % (field_id)
 
 def disableFieldEditingJS(field_id):
+
+    try:
+        # Not strictly PEP8 (probably) to import here, but it's cleaner to keep
+        # it all contained just in case old Anki versions don't have a theme
+        # manager
+        from aqt.theme import theme_manager
+
+        # TODO this colour should probably be configurable in the config.
+        disable_edit_bg_color = "#444231" if theme_manager.get_night_mode() else "#FFFDE7"
+    # Except this version of Anki does not have theme manager and/or Night Mode
+    except (AttributeError, ImportError):
+        disable_edit_bg_color =  "#FFFDE7"
     
     return """
     (function() {
@@ -118,7 +129,7 @@ def disableFieldEditingJS(field_id):
         field.setAttribute("oncut", "return false;");
         // Allow Ctrl +, and Tab key
         field.setAttribute("onkeydown", "if(event.metaKey) return true; else if(event.keyCode === 9) return true; return false;");
-    })()""" % ("#444231" if theme_manager.get_night_mode() else "#FFFDE7", field_id)
+    })()""" % (disable_edit_bg_color, field_id)
 
 
 def onMarkdownToggle(editor):
