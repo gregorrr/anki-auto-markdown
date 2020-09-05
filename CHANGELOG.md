@@ -1,5 +1,10 @@
 # Changelog
 
+## 2020-09-05 patch 2
+Tested with Anki version 2.1.33.
+
+Fix for `KeyError` (see #2)
+
 ## 2020-09-05 patch 1
 Tested with Anki version 2.1.33.
 
