@@ -1,7 +1,13 @@
 # Changelog
 
+## 2020-09-05 patch 1
+Tested with Anki version 2.1.33.
+
+Fix for tabs/spaces error in `__init__.py`.
+
+
 ## 2020-09-05
-Tested with Anki version 2.1.30.
+Tested with Anki version 2.1.33.
 
 This release adds:
 * Fix for error relating to fields.py (See #1, #2).
