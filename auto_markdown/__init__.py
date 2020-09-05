@@ -42,8 +42,8 @@ def FieldDialog__saveField__new(self, *args, **kwargs):
     perform_auto_markdown = self.markdownCheckbox.isChecked()
     # This is part of a change tracker introduced in later (at least 2.1.33+) versions of Anki
     if fld["perform-auto-markdown"] != perform_auto_markdown:
-	fld["perform-auto-markdown"] = perform_auto_markdown
-	self.change_tracker.mark_basic()
+        fld["perform-auto-markdown"] = perform_auto_markdown
+        self.change_tracker.mark_basic()
 
 def main():
     # fields
