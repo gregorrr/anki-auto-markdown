@@ -5,6 +5,13 @@ this fork is to maintain bugfixes and keep up to date with changes in Anki.
 
 There are no current plans to add new features.
 
+## QA testing
+In leiu of good automated testing for Anki plugins, the following things should be checked when preparing a release:
+
+* Fields in the editor can be toggled with `Ctrl + m`
+* Enabling auto markdown on fields can be done in Note Types (`Ctrl + Shift + n`) > press Fields button  
+* Enabling auto markdown on fields can be done in Note Types (`Ctrl + Shift + n`) > press Fields button with a new card type
+
 
 ## Original README file.
 
