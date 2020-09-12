@@ -4,7 +4,7 @@
         "uiEditFieldCheckbox": true
     },
     "code": {
-        "colorScheme": "default",
+        "colorScheme": "monokai",
         "lineNums": true
     },
     "manual": {
