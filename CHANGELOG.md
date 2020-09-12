@@ -1,5 +1,11 @@
 # Changelog
 
+## 2020-09-12
+Tested with Anki version 2.1.33.
+
+* Changed markdown to use html as the source. This enables formatting and
+  images to be preserved when converting to markdown (see #4).
+
 ## 2020-09-05 patch 2
 Tested with Anki version 2.1.33.
 
