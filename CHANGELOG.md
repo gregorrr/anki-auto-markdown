@@ -1,5 +1,11 @@
 # Changelog
 
+## 2020-09-14
+Tested with Anki version 2.1.33.
+
+* Hotfix for `code` and `pre` tags not being stripped out.
+* Fix #8.
+
 ## 2020-09-12
 Tested with Anki version 2.1.33.
 
