@@ -25,9 +25,14 @@ from . import config
 def sanitize(html_text):
     """Converts various HTML objects in Anki generated HTML to markdown."""
     return (html_text
+        .replace('<div><br></div>', '\n') # Anki inputs this on an empty line
         .replace('<br>', '\n')
         .replace('<div>', '\n')
         .replace('</div>', '')
+        .replace('<code>', '')
+        .replace('<pre>', '')
+        .replace('</code>', '')
+        .replace('</pre>', '')
         .replace('&nbsp;', ' ')
         .replace('&lt;', '<')
         .replace('&gt;', '>')
