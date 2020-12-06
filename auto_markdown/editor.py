@@ -1,3 +1,5 @@
+import re
+
 from aqt import mw
 from aqt.utils import showInfo, showText
 from aqt.qt import *
