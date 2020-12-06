@@ -22,27 +22,8 @@ import base64
 
 from . import config
 
-def sanitize(html_text):
-    """Converts various HTML objects in Anki generated HTML to markdown."""
-    return (html_text
-        .replace('<div><br></div>', '\n') # Anki inputs this on an empty line
-        .replace('<br>', '\n')
-        .replace('<div>', '\n')
-        .replace('</div>', '')
-        .replace('<code>', '')
-        .replace('<pre>', '')
-        .replace('</code>', '')
-        .replace('</pre>', '')
-        .replace('&nbsp;', ' ')
-        .replace('&lt;', '<')
-        .replace('&gt;', '>')
-        .replace('&amp;', '&')
-        )
-
 def generateHtmlFromMarkdown(field_plain, field_html):
-    sanitized_html = sanitize(field_html)
-
-    generated_html = markdown.markdown(sanitized_html, extensions=[
+    generated_html = markdown.markdown(field_plain, extensions=[
         AbbrExtension(),
         CodeHiliteExtension(
             noclasses = True, 
@@ -151,8 +132,10 @@ def onMarkdownToggle(editor):
     # workaround for problem with editor.note.fields[field_id] sometimes not being populated
     def onHtmlAvailable(field_html):
         if editor and editor.web:
+            edited_field_html = re.sub(r'<img src="(.*?)".*?>', r'![An image](\1)', field_html)
+            editor.web.eval("""document.getElementById('f%s').innerHTML = %s;""" % (field_id, json.dumps(edited_field_html)))
             editor.web.evalWithCallback("document.getElementById('f%s').innerText" % (field_id), 
-            lambda field_text : onInnerTextAvailable(field_html, field_text))
+                lambda field_text : onInnerTextAvailable(field_html, field_text))
 
     def onInnerTextAvailable(field_html, field_text):
         isGenerated = fieldIsGeneratedHtml(field_html)
