@@ -42,3 +42,4 @@ def FieldDialog____init__(self, mw: AnkiQt, nt: NoteType, parent=None):
     self.form.fieldList.dropEvent = self.onDrop
     self.form.fieldList.setCurrentRow(0)
     self.exec_()
+
