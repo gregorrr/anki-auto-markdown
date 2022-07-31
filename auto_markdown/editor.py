@@ -34,7 +34,7 @@ def js_get_query_selector_by_field_id(field_id: int) -> str:
 
 def generateHtmlFromMarkdown(field_plain, field_html):
     generated_html = markdown.markdown(
-        field_plain,
+        field_plain.replace("\xa0", " "),
         extensions=[
             AbbrExtension(),
             CodeHiliteExtension(
