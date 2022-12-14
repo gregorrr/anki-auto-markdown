@@ -1,3 +1,6 @@
+This plugin is officially retired (unless someone else picks it up) as from Anki 2.1.50+ the internals of Anki have changed and this plugin no longer functions. Anyone is free to fork and continue this plugin in any way.
+
+---
 # Auto Markdown
 
 This is a fork of the _excellent_ markdown plugin by @gregorrr. The purpose of
