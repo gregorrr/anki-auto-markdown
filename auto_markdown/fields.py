@@ -5,44 +5,41 @@ from aqt.utils import showInfo
 from aqt.qt import *
 import aqt
 
+from aqt import AnkiQt
+from anki.models import NoteType
+from aqt.schema_change_tracker import ChangeTracker
+
 # local
 from . import config
 
-def fieldDialog__init__(self, mw, note, ord=0, parent=None):
-    QDialog.__init__(self, parent or mw) #, Qt.Window)
-    self.mw = aqt.mw
-    self.parent = parent or mw
-    self.note = note
+def FieldDialog____init__(self, mw: AnkiQt, nt: NoteType, parent=None):
+    QDialog.__init__(self, parent or mw)
+    self.mw = mw
     self.col = self.mw.col
     self.mm = self.mw.col.models
-    self.model = note.model()
+    self.model = nt
+    self.mm._remove_from_cache(self.model["id"])
     self.mw.checkpoint(_("Fields"))
+    self.change_tracker = ChangeTracker(self.mw)
     self.form = aqt.forms.fields.Ui_Dialog()
     self.form.setupUi(self)
 
+    # Added for auto markdown
     self.markdownCheckbox = QCheckBox("Convert to/from markdown automatically")
     row = self.form._2.rowCount() + 1
     self.form._2.addWidget(self.markdownCheckbox, row, 1)
 
-    self.setWindowTitle(_("Fields for %s") % self.model['name'])
+
+    self.setWindowTitle(_("Fields for %s") % self.model["name"])
     self.form.buttonBox.button(QDialogButtonBox.Help).setAutoDefault(False)
-    self.form.buttonBox.button(QDialogButtonBox.Close).setAutoDefault(False)
+    self.form.buttonBox.button(QDialogButtonBox.Cancel).setAutoDefault(False)
+    self.form.buttonBox.button(QDialogButtonBox.Save).setAutoDefault(False)
     self.currentIdx = None
-    self.oldSortField = self.model['sortf']
+    self.oldSortField = self.model["sortf"]
     self.fillFields()
     self.setupSignals()
+    self.form.fieldList.setDragDropMode(QAbstractItemView.InternalMove)
+    self.form.fieldList.dropEvent = self.onDrop
     self.form.fieldList.setCurrentRow(0)
     self.exec_()
-    
-# after
-def fieldDialogLoadField(self, idx):
-    fld = self.model['flds'][self.currentIdx]
-    self.markdownCheckbox.setChecked(fld['perform-auto-markdown'] if 'perform-auto-markdown' in fld else False)
 
-# after
-def fieldDialogSaveField(self):
-    if self.currentIdx is None:
-        return
-    idx = self.currentIdx
-    fld = self.model['flds'][idx]
-    fld['perform-auto-markdown'] = self.markdownCheckbox.isChecked()
